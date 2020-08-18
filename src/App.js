@@ -1,99 +1,37 @@
-import React, { useEffect, useReducer } from "react";
+import React, { useEffect, useReducer, useRef } from "react";
 import "./App.css";
+import reducer from "./reducer";
+import { MAX_TOP, MAX_LEFT } from "./utility";
 
-// CONSTANTS
-// @desc --  since width of the playground is 700px and that of player and goal is 90
-// @desc -- So, keeping max width limit as playground - width of player & thus for height
-
-const MAX_LEFT = 610;
-const MAX_TOP = 360;
-
+const session = JSON.parse(sessionStorage.getItem("game")) || {};
 const initialState = {
-  position: { left: 20, top: 20 },
-  goal: { left: MAX_LEFT - 20, top: MAX_TOP - 20 },
-  level: 0,
-  lastFivePosition: [{ left: 20, top: 20 }],
-  undoIndex: 1,
-};
-
-const newPosition = (max) => {
-  let randomNumber = Math.floor(Math.random() * max);
-  return randomNumber - (randomNumber % 10);
-};
-
-const handleLastFivePosition = (lastFivePosition, newPosition) => {
-  let updatedLastFivePosition = [...lastFivePosition];
-  if (lastFivePosition.length === 6) updatedLastFivePosition.shift();
-  updatedLastFivePosition.push(newPosition);
-  return updatedLastFivePosition;
-};
-
-const reducer = (state, action) => {
-  switch (action.type) {
-    case "UPDATE_TOP":
-      return {
-        ...state,
-        position: { ...state.position, top: action.payload },
-        lastFivePosition: handleLastFivePosition(state.lastFivePosition, {
-          ...state.position,
-          top: action.payload,
-        }),
-        undoIndex: handleLastFivePosition(state.lastFivePosition, {
-          ...state.position,
-          top: action.payload,
-        }).length,
-      };
-    case "UPDATE_LEFT":
-      return {
-        ...state,
-        position: { ...state.position, left: action.payload },
-        lastFivePosition: handleLastFivePosition(state.lastFivePosition, {
-          ...state.position,
-          left: action.payload,
-        }),
-        undoIndex: handleLastFivePosition(state.lastFivePosition, {
-          ...state.position,
-          left: action.payload,
-        }).length,
-      };
-    case "UNDO":
-      if (state.undoIndex === 1) return state;
-      return {
-        ...state,
-        position: state.lastFivePosition[state.undoIndex - 2],
-        undoIndex: state.undoIndex - 1,
-        lastFivePosition:
-          state.undoIndex === 2
-            ? [state.lastFivePosition[0]]
-            : state.lastFivePosition,
-      };
-    case "GOAL_REACHED":
-      return {
-        ...state,
-        goal: { top: newPosition(MAX_TOP), left: newPosition(MAX_LEFT) },
-        level: state.level + 1,
-      };
-    default:
-      return state;
-  }
+  position: session.position || { left: 20, top: 20 },
+  goal: session.goal || { left: MAX_LEFT - 20, top: MAX_TOP - 20 },
+  level: session.level || 0,
+  lastFivePosition: session.lastFivePosition || [{ left: 20, top: 20 }],
+  undoIndex: session.undoIndex || 1,
 };
 
 const App = () => {
-  const [
-    { position, goal, level, lastFivePosition, undoIndex },
-    dispatch,
-  ] = useReducer(reducer, initialState);
-  console.log(undoIndex, lastFivePosition);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { position, goal, level, undoIndex } = state;
+  const ref = useRef();
 
   useEffect(() => {
-    if (position.left === goal.left && position.top === goal.top) {
-      console.log("test");
+    ref.current.focus();
+  }, []);
+
+  useEffect(() => {
+    sessionStorage.setItem("game", JSON.stringify(state));
+    if (
+      state.position.left === state.goal.left &&
+      state.position.top === state.goal.top
+    ) {
       dispatch({ type: "GOAL_REACHED" });
     }
-  }, [position, goal]);
+  }, [state]);
 
   const onKeyDown = ({ keyCode }) => {
-    console.log("onKeyDown", keyCode);
     switch (keyCode) {
       case 37:
         if (position.left === 0) return;
@@ -113,11 +51,14 @@ const App = () => {
   };
 
   return (
-    <div className="container" tabIndex="0" onKeyDown={onKeyDown}>
+    <div ref={ref} className="container" tabIndex="0" onKeyDown={onKeyDown}>
       <div className="undo-score">
         <h4
           onClick={() => dispatch({ type: "UNDO" })}
-          style={{ cursor: undoIndex === 1 ? `not-allowed` : `pointer` }}
+          style={{
+            cursor: undoIndex === 1 ? `not-allowed` : `pointer`,
+            color: undoIndex === 1 ? `gainsboro` : ``,
+          }}
         >
           Undo upto 5 Steps
         </h4>
